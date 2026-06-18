@@ -9,7 +9,12 @@ export class GameWebSocket {
   }
 
   connect() {
-    this.ws = new WebSocket(`ws://localhost:8000/ws/${this.playerId}`);
+    const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000';
+    this.ws = new WebSocket(`${WS_URL}/ws/${this.playerId}`);
+    
+    this.ws.onopen = () => {
+      console.log('WebSocket подключен');
+    };
     
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
