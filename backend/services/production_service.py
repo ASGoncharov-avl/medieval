@@ -1,21 +1,23 @@
 from models.player import Player, Worker, WorkerType
-from models.resources import ResourceType
+from models.resources import ResourceType, BuildingType
+from services.building_service import BuildingService
 import asyncio
 from typing import Dict
 
 class ProductionService:
     def __init__(self):
         self.active_production: Dict[str, asyncio.Task] = {}
+        self.building_service = BuildingService()
     
     def get_worker_cost(self, worker_type: WorkerType) -> Dict:
         """Стоимость найма рабочего"""
         costs = {
             WorkerType.LUMBERJACK: {"gold": 50},
             WorkerType.MINER_STONE: {"gold": 75},
-            WorkerType.MINER_METAL: {"gold": 100},
-            WorkerType.CARPENTER: {"gold": 80, "resources": {ResourceType.WOOD: 20}},
-            WorkerType.MASON: {"gold": 80, "resources": {ResourceType.STONE: 20}},
-            WorkerType.BLACKSMITH: {"gold": 120, "resources": {ResourceType.METAL: 10}},
+            WorkerType.MINER_IRON: {"gold": 100},
+            WorkerType.CARPENTER: {"gold": 0},      # нанимается через лесопилку
+            WorkerType.MASON: {"gold": 0},           # нанимается через каменоломню
+            WorkerType.BLACKSMITH: {"gold": 0},      # нанимается через кузницу
         }
         return costs[worker_type]
     
@@ -29,47 +31,31 @@ class ProductionService:
         if player.gold < cost["gold"]:
             return False, f"Недостаточно золота! Нужно {cost['gold']}, у вас {player.gold}"
         
-        if "resources" in cost:
-            for resource_type, amount in cost["resources"].items():
-                if player.storage.resources[resource_type] < amount:
-                    return False, f"Недостаточно {resource_type.value}! Нужно {amount}"
-        
-        # Проверяем, сможем ли платить зарплату
-        worker_temp = Worker(id=0, type=worker_type, name="temp")
-        total_salary = sum(w.get_salary() for w in player.workers) + worker_temp.get_salary()
-        if player.gold - cost["gold"] < total_salary * 2:  # предупреждение если золота мало
-            return True, "⚠️ Учтите, что рабочим нужно платить зарплату!"
-        
         return True, "Можно нанять"
     
     def hire_worker(self, player: Player, worker_type: WorkerType) -> Worker:
         """Найм рабочего"""
         cost = self.get_worker_cost(worker_type)
-        
         player.gold -= cost["gold"]
-        if "resources" in cost:
-            for resource_type, amount in cost["resources"].items():
-                player.storage.remove_resource(resource_type, amount)
         
         worker = Worker(
             id=len(player.workers) + 1,
             type=worker_type,
             name=f"{worker_type.value}_{len(player.workers) + 1}"
         )
-        # Устанавливаем зарплату
         worker.salary = worker.get_salary()
-        
         player.workers.append(worker)
         return worker
     
     def pay_salaries(self, player: Player) -> tuple:
-        """Выплата зарплаты всем рабочим. Возвращает (успех, сообщение)"""
-        total_salary = 0
+        """Выплата зарплаты + обслуживание зданий"""
+        total_cost = 0
         unpaid_workers = []
         
+        # Зарплата рабочим
         for worker in player.workers:
             salary = worker.get_salary()
-            total_salary += salary
+            total_cost += salary
             
             if player.gold >= salary:
                 player.gold -= salary
@@ -79,12 +65,18 @@ class ProductionService:
                 worker.is_paid = False
                 unpaid_workers.append(worker.name)
         
+        # Обслуживание зданий
+        for building in player.buildings:
+            if player.gold >= building.maintenance:
+                player.gold -= building.maintenance
+                total_cost += building.maintenance
+        
         if unpaid_workers:
-            return False, f"Не хватило золота на зарплату! {', '.join(unpaid_workers)} не вышли на работу"
-        return True, f"Выплачена зарплата: {total_salary} 💰"
+            return False, f"Не хватило золота! {', '.join(unpaid_workers)} не работают"
+        return True, f"Расходы: {total_cost} 💰"
     
     async def produce_resources(self, player: Player):
-        """Автоматическая добыча ресурсов рабочими"""
+        """Добыча и производство ресурсов"""
         cycle_count = 0
         while True:
             cycle_count += 1
@@ -95,30 +87,42 @@ class ProductionService:
             
             for worker in player.workers:
                 if not worker.is_paid:
-                    continue  # без зарплаты не работают
+                    continue
                 
                 production_rate = worker.get_production_rate()
                 
+                # Базовая добыча (лесоруб, рудокопы)
                 if worker.type == WorkerType.LUMBERJACK:
                     player.storage.add_resource(ResourceType.WOOD, production_rate)
                     
                 elif worker.type == WorkerType.MINER_STONE:
                     player.storage.add_resource(ResourceType.STONE, production_rate)
                     
-                elif worker.type == WorkerType.MINER_METAL:
-                    player.storage.add_resource(ResourceType.METAL, production_rate)
-                    
+                elif worker.type == WorkerType.MINER_IRON:
+                    player.storage.add_resource(ResourceType.IRON, production_rate)
+                
+                # Производство в зданиях
                 elif worker.type == WorkerType.CARPENTER:
-                    if player.storage.remove_resource(ResourceType.WOOD, 2):
-                        player.storage.add_resource(ResourceType.PLANKS, production_rate)
-                        
+                    # Проверяем есть ли лесопилка
+                    has_building = any(b.type == BuildingType.LUMBER_MILL for b in player.buildings)
+                    if has_building:
+                        config = self.building_service.BUILDING_CONFIGS[BuildingType.LUMBER_MILL]
+                        if player.storage.remove_resource(ResourceType.WOOD, config["input_amount"]):
+                            player.storage.add_resource(ResourceType.PLANKS, production_rate)
+                
                 elif worker.type == WorkerType.MASON:
-                    if player.storage.remove_resource(ResourceType.STONE, 2):
-                        player.storage.add_resource(ResourceType.BRICKS, production_rate)
-                        
+                    has_building = any(b.type == BuildingType.STONEMASON for b in player.buildings)
+                    if has_building:
+                        config = self.building_service.BUILDING_CONFIGS[BuildingType.STONEMASON]
+                        if player.storage.remove_resource(ResourceType.STONE, config["input_amount"]):
+                            player.storage.add_resource(ResourceType.BRICKS, production_rate)
+                
                 elif worker.type == WorkerType.BLACKSMITH:
-                    if player.storage.remove_resource(ResourceType.METAL, 2):
-                        player.storage.add_resource(ResourceType.TOOLS, production_rate)
+                    has_building = any(b.type == BuildingType.SMITHY for b in player.buildings)
+                    if has_building:
+                        config = self.building_service.BUILDING_CONFIGS[BuildingType.SMITHY]
+                        if player.storage.remove_resource(ResourceType.IRON, config["input_amount"]):
+                            player.storage.add_resource(ResourceType.TOOLS, production_rate)
                 
                 player.experience += production_rate
                 
@@ -126,4 +130,4 @@ class ProductionService:
                     player.level += 1
                     player.max_workers += 1
             
-            await asyncio.sleep(5)  # цикл каждые 5 секунд
+            await asyncio.sleep(5)
