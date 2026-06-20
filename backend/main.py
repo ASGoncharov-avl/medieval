@@ -156,35 +156,40 @@ async def hire_building_worker(player_id: str, building_type: BuildingType):
 async def websocket_endpoint(websocket: WebSocket, player_id: str):
     await websocket.accept()
     active_connections[player_id] = websocket
+    print(f"✅ WebSocket подключен: {player_id}")
     
     try:
         while True:
             if player_id in players:
                 player = players[player_id]
                 
-                game_state = {
-                    "type": "game_update",
-                    "player": player.model_dump(),
-                    "market": {},
-                }
-                
-                for resource_type, price in market_service.market.prices.items():
-                    game_state["market"][resource_type.value] = {
-                        "buy_price": price.buy_price,
-                        "sell_price": price.sell_price
+                try:
+                    game_state = {
+                        "type": "game_update",
+                        "player": player.model_dump(),
+                        "market": {},
                     }
-                
-                await websocket.send_json(game_state)
+                    
+                    for resource_type, price in market_service.market.prices.items():
+                        game_state["market"][resource_type.value] = {
+                            "buy_price": price.buy_price,
+                            "sell_price": price.sell_price
+                        }
+                    
+                    await websocket.send_json(game_state)
+                except Exception as e:
+                    print(f"❌ Ошибка отправки: {e}")
+                    break
             
             await asyncio.sleep(1)
             
     except WebSocketDisconnect:
-        if player_id in active_connections:
-            del active_connections[player_id]
+        print(f"🔌 Игрок {player_id} отключился")
     except Exception as e:
+        print(f"❌ Ошибка WebSocket: {e}")
+    finally:
         if player_id in active_connections:
             del active_connections[player_id]
-
 @app.get("/api/price_history/{resource_type}")
 async def get_price_history(resource_type: ResourceType):
     return market_service.price_history.get(resource_type, [])
