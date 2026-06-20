@@ -7,13 +7,13 @@ interface WorkerPanelProps {
   onUpdate: (player: Player) => void;
 }
 
-const workerInfo: Record<WorkerType, { name: string; icon: string; cost: number; description: string }> = {
-  [WorkerType.LUMBERJACK]: { name: 'Лесоруб', icon: '🪓', cost: 50, description: 'Добывает дерево' },
-  [WorkerType.MINER_STONE]: { name: 'Каменолом', icon: '⛏️', cost: 75, description: 'Добывает камень' },
-  [WorkerType.MINER_METAL]: { name: 'Рудокоп', icon: '⚒️', cost: 100, description: 'Добывает металл' },
-  [WorkerType.CARPENTER]: { name: 'Плотник', icon: '🪚', cost: 80, description: 'Делает доски' },
-  [WorkerType.MASON]: { name: 'Каменщик', icon: '🧱', cost: 80, description: 'Делает кирпичи' },
-  [WorkerType.BLACKSMITH]: { name: 'Кузнец', icon: '🔨', cost: 120, description: 'Кует инструменты' },
+const workerInfo: Record<WorkerType, { name: string; icon: string; cost: number; salary: number; description: string }> = {
+  [WorkerType.LUMBERJACK]: { name: 'Лесоруб', icon: '🪓', cost: 50, salary: 3, description: 'Добывает дерево' },
+  [WorkerType.MINER_STONE]: { name: 'Каменолом', icon: '⛏️', cost: 75, salary: 5, description: 'Добывает камень' },
+  [WorkerType.MINER_METAL]: { name: 'Рудокоп', icon: '⚒️', cost: 100, salary: 7, description: 'Добывает металл' },
+  [WorkerType.CARPENTER]: { name: 'Плотник', icon: '🪚', cost: 80, salary: 6, description: 'Делает доски' },
+  [WorkerType.MASON]: { name: 'Каменщик', icon: '🧱', cost: 80, salary: 6, description: 'Делает кирпичи' },
+  [WorkerType.BLACKSMITH]: { name: 'Кузнец', icon: '🔨', cost: 120, salary: 10, description: 'Кует инструменты' },
 };
 
 const WorkerPanel: React.FC<WorkerPanelProps> = ({ player, onUpdate }) => {
@@ -33,21 +33,28 @@ const WorkerPanel: React.FC<WorkerPanelProps> = ({ player, onUpdate }) => {
     setTimeout(() => {
       setMessage('');
       setMessageType('');
-    }, 3000);
+    }, 5000);
   };
+
+  const totalSalary = player.workers.reduce((sum, w) => sum + w.salary, 0);
 
   return (
     <div className="panel">
       <h2 className="panel-title">👥 Гильдия рабочих</h2>
       
       <div style={{ 
-        textAlign: 'center', 
-        marginBottom: '20px', 
-        color: '#ffd700', 
-        fontSize: '1.2em',
-        fontFamily: 'MedievalSharp, cursive'
+        background: 'rgba(0,0,0,0.3)', 
+        borderRadius: '10px', 
+        padding: '15px', 
+        marginBottom: '20px',
+        textAlign: 'center'
       }}>
-        Рабочих в поместье: {player.workers.length} / {player.max_workers}
+        <div style={{ color: '#ffd700', fontSize: '1.2em', fontFamily: 'MedievalSharp, cursive', marginBottom: '10px' }}>
+          Рабочих в поместье: {player.workers.length} / {player.max_workers}
+        </div>
+        <div style={{ color: '#ff6b6b', fontSize: '1.1em' }}>
+          💰 Расход на зарплату: {totalSalary * 12} золотых/мин
+        </div>
       </div>
       
       {message && (
@@ -64,7 +71,12 @@ const WorkerPanel: React.FC<WorkerPanelProps> = ({ player, onUpdate }) => {
             <div style={{ color: '#d4a574', fontSize: '0.9em', marginBottom: '8px' }}>
               {info.description}
             </div>
-            <div className="worker-cost">💰 {info.cost} золотых</div>
+            <div style={{ color: '#51cf66', marginBottom: '5px', fontSize: '0.9em' }}>
+              💰 Зарплата: {info.salary}/цикл
+            </div>
+            <div className="worker-cost" style={{ color: '#ffd700' }}>
+              💎 Найм: {info.cost} золотых
+            </div>
             <button
               className="medieval-button"
               onClick={() => handleHire(type as WorkerType)}
@@ -82,10 +94,31 @@ const WorkerPanel: React.FC<WorkerPanelProps> = ({ player, onUpdate }) => {
           <h3 className="active-workers-title">👷 Ваши работники:</h3>
           <div className="worker-list">
             {player.workers.map((worker) => (
-              <div className="active-worker" key={worker.id}>
-                <div className="active-worker-icon">{workerInfo[worker.type].icon}</div>
-                <div className="active-worker-name">{workerInfo[worker.type].name}</div>
-                <div className="active-worker-level">Уровень: {worker.level}</div>
+              <div 
+                className="active-worker" 
+                key={worker.id}
+                style={{
+                  border: worker.is_paid ? '1px solid #51cf66' : '1px solid #ff6b6b',
+                  opacity: worker.is_paid ? 1 : 0.6
+                }}
+              >
+                <div className="active-worker-icon">
+                  {workerInfo[worker.type].icon}
+                  {!worker.is_paid && <span style={{ color: '#ff6b6b', marginLeft: '5px' }}>⚠️</span>}
+                </div>
+                <div className="active-worker-name">
+                  {workerInfo[worker.type].name}
+                </div>
+                <div className="active-worker-level">
+                  Уровень: {worker.level} | 💰{worker.salary}
+                </div>
+                <div style={{ 
+                  fontSize: '0.8em', 
+                  color: worker.is_paid ? '#51cf66' : '#ff6b6b',
+                  marginTop: '5px'
+                }}>
+                  {worker.is_paid ? '✅ Работает' : '❌ Не оплачен'}
+                </div>
               </div>
             ))}
           </div>
