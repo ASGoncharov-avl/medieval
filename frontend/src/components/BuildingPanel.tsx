@@ -17,6 +17,7 @@ const buildingIcons: Record<string, string> = {
 
 const BuildingPanel: React.FC<BuildingPanelProps> = ({ player, onUpdate }) => {
   const [buildingsInfo, setBuildingsInfo] = useState<Record<string, BuildingInfo>>({});
+  const [activeTab, setActiveTab] = useState<'buildings' | 'build'>('buildings');
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
 
@@ -70,87 +71,207 @@ const BuildingPanel: React.FC<BuildingPanelProps> = ({ player, onUpdate }) => {
     <div className="panel">
       <h2 className="panel-title">🏗️ Строения</h2>
 
+      {/* Табы */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+        <button
+          className="medieval-button"
+          onClick={() => setActiveTab('buildings')}
+          style={{
+            flex: 1,
+            padding: '8px',
+            fontSize: '0.85em',
+            background: activeTab === 'buildings' 
+              ? 'linear-gradient(180deg, #a0522d 0%, #8b4513 100%)' 
+              : undefined,
+            border: activeTab === 'buildings' ? '2px solid #ffd700' : undefined
+          }}
+        >
+          🏰 Построенные ({player.buildings.length})
+        </button>
+        <button
+          className="medieval-button"
+          onClick={() => setActiveTab('build')}
+          style={{
+            flex: 1,
+            padding: '8px',
+            fontSize: '0.85em',
+            background: activeTab === 'build' 
+              ? 'linear-gradient(180deg, #a0522d 0%, #8b4513 100%)' 
+              : undefined,
+            border: activeTab === 'build' ? '2px solid #ffd700' : undefined
+          }}
+        >
+          🔨 Построить
+        </button>
+      </div>
+
       {message && (
         <div className={`game-message game-message-${messageType}`}>
           {message}
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-        {Object.entries(buildingsInfo).map(([type, info]) => {
-          const built = isBuilt(type);
-          const building = getBuilding(type);
-          
-          return (
-            <div key={type} style={{
-              background: built ? 'rgba(81, 207, 102, 0.1)' : 'rgba(0,0,0,0.3)',
-              border: built ? '1px solid #51cf66' : '1px solid #8b7355',
-              borderRadius: '8px',
-              padding: '10px',
-              fontSize: '0.75em'
+      {/* Вкладка "Построенные" */}
+      {activeTab === 'buildings' && (
+        <div>
+          {player.buildings.length === 0 ? (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '20px', 
+              color: '#8b7355',
+              fontSize: '0.9em'
             }}>
-              <div style={{ textAlign: 'center', fontSize: '1.8em', marginBottom: '5px' }}>
-                {buildingIcons[type] || '🏗️'}
-              </div>
-              <div style={{ color: '#ffd700', textAlign: 'center', fontWeight: 'bold', marginBottom: '5px' }}>
-                {info.name}
-              </div>
-              
-              {built && building ? (
-                <div>
-                  <div style={{ color: '#51cf66', textAlign: 'center', fontSize: '0.85em', marginBottom: '5px' }}>
-                    ✅ Построено (Ур.{building.level})
-                  </div>
-                  
-                  {info.worker_slots > 0 && (
-                    <div style={{ marginTop: '5px' }}>
-                      <div style={{ color: '#d4a574', fontSize: '0.8em', textAlign: 'center' }}>
-                        Рабочие: {building.current_workers}/{building.worker_slots * building.level}
+              <div style={{ fontSize: '2em', marginBottom: '8px' }}>🏚️</div>
+              Нет построенных зданий.<br/>
+              Перейдите во вкладку "Построить"
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {player.buildings.map(building => {
+                const info = buildingsInfo[building.type];
+                if (!info) return null;
+                
+                return (
+                  <div key={building.type} style={{
+                    background: 'rgba(81, 207, 102, 0.1)',
+                    border: '1px solid #51cf66',
+                    borderRadius: '8px',
+                    padding: '12px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1.8em' }}>
+                        {buildingIcons[building.type] || '🏗️'}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '1em' }}>
+                          {info.name}
+                        </div>
+                        <div style={{ color: '#51cf66', fontSize: '0.8em' }}>
+                          Уровень {building.level}
+                        </div>
                       </div>
-                      
-                      {building.current_workers < building.worker_slots * building.level && (
-                        <button
-                          className="medieval-button"
-                          onClick={() => handleHireWorker(type)}
-                          style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.75em' }}
-                        >
-                          Нанять рабочего
-                        </button>
+                    </div>
+
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '1fr 1fr', 
+                      gap: '6px',
+                      fontSize: '0.75em',
+                      color: '#d4a574',
+                      marginBottom: '8px'
+                    }}>
+                      <div>💰 Обслуживание: {building.maintenance}/мин</div>
+                      {info.worker_slots > 0 && (
+                        <div>👷 Рабочие: {building.current_workers}/{building.worker_slots * building.level}</div>
+                      )}
+                      {building.bonus_percent > 0 && (
+                        <div>📈 Бонус: +{building.bonus_percent * building.level}%</div>
                       )}
                     </div>
-                  )}
-                  
-                  <div style={{ color: '#ff6b6b', fontSize: '0.7em', textAlign: 'center', marginTop: '5px' }}>
-                    Обслуживание: {building.maintenance} 💰/мин
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ color: '#d4a574', marginBottom: '5px' }}>
-                    <div style={{ fontSize: '0.8em', marginBottom: '3px' }}>
-                      💰 {info.build_cost_gold} золота
+
+                    {/* Кнопки действий */}
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {info.worker_slots > 0 && building.current_workers < building.worker_slots * building.level && (
+                        <button
+                          className="medieval-button"
+                          onClick={() => handleHireWorker(building.type)}
+                          style={{ flex: 1, padding: '6px', fontSize: '0.7em' }}
+                        >
+                          👷 Нанять
+                        </button>
+                      )}
+                      <button
+                        className="medieval-button"
+                        style={{ 
+                          flex: 1, 
+                          padding: '6px', 
+                          fontSize: '0.7em',
+                          background: 'linear-gradient(180deg, #8B0000 0%, #600000 100%)',
+                          border: '1px solid #ff4444'
+                        }}
+                        title="Снести здание (будет добавлено позже)"
+                      >
+                        💥 Снести
+                      </button>
                     </div>
-                    {Object.entries(info.build_cost_resources).map(([res, amount]) => (
-                      <div key={res} style={{ fontSize: '0.8em' }}>
-                        {res}: {amount}
-                      </div>
-                    ))}
                   </div>
-                  
-                  <button
-                    className="medieval-button"
-                    onClick={() => handleBuild(type)}
-                    disabled={!canAfford(info)}
-                    style={{ width: '100%', padding: '5px', fontSize: '0.75em' }}
-                  >
-                    Построить
-                  </button>
-                </div>
-              )}
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
+
+      {/* Вкладка "Построить" */}
+      {activeTab === 'build' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          {Object.entries(buildingsInfo).map(([type, info]) => {
+            const built = isBuilt(type);
+            
+            return (
+              <div key={type} style={{
+                background: built ? 'rgba(81, 207, 102, 0.05)' : 'rgba(0,0,0,0.3)',
+                border: built ? '1px solid #51cf66' : '1px solid #8b7355',
+                borderRadius: '8px',
+                padding: '8px',
+                fontSize: '0.7em',
+                opacity: built ? 0.6 : 1
+              }}>
+                <div style={{ textAlign: 'center', fontSize: '1.5em', marginBottom: '4px' }}>
+                  {buildingIcons[type] || '🏗️'}
+                </div>
+                <div style={{ color: '#ffd700', textAlign: 'center', fontWeight: 'bold', marginBottom: '4px' }}>
+                  {info.name}
+                </div>
+                <div style={{ color: '#d4a574', textAlign: 'center', fontSize: '0.9em', marginBottom: '6px' }}>
+                  {info.description}
+                </div>
+                
+                <div style={{ marginBottom: '6px' }}>
+                  <div style={{ color: '#ffd700', fontSize: '0.9em', marginBottom: '2px' }}>
+                    💰 {info.build_cost_gold} золота
+                  </div>
+                  {Object.entries(info.build_cost_resources).map(([res, amount]) => (
+                    <div key={res} style={{ color: '#d4a574', fontSize: '0.85em' }}>
+                      + {amount} {res}
+                    </div>
+                  ))}
+                </div>
+
+                {info.worker_slots > 0 && (
+                  <div style={{ color: '#51cf66', fontSize: '0.8em', marginBottom: '4px' }}>
+                    👷 Слотов: {info.worker_slots}
+                  </div>
+                )}
+                
+                {info.bonus_percent > 0 && (
+                  <div style={{ color: '#51cf66', fontSize: '0.8em', marginBottom: '4px' }}>
+                    📈 Бонус: +{info.bonus_percent}%
+                  </div>
+                )}
+
+                <div style={{ color: '#ff6b6b', fontSize: '0.8em', marginBottom: '6px' }}>
+                  🔧 Обслуживание: {info.maintenance} 💰/мин
+                </div>
+
+                <button
+                  className="medieval-button"
+                  onClick={() => handleBuild(type)}
+                  disabled={built || !canAfford(info)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '5px', 
+                    fontSize: '0.75em',
+                    opacity: built ? 0.5 : 1
+                  }}
+                >
+                  {built ? '✅ Построено' : '🔨 Построить'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
