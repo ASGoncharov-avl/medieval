@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Player, ResourceType } from '../types/game';
 import { api } from '../services/api';
 
@@ -23,72 +23,92 @@ const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
 
+  // 🔥 ВАЖНО: Используем ref для хранения актуального player
+  const playerRef = useRef(player);
+  
+  // 🔥 Обновляем ref каждый раз когда player меняется
+  useEffect(() => {
+    playerRef.current = player;
+  }, [player]);
+
   const paidWorkers = player.workers.filter(w => w.is_paid).length;
   const unpaidWorkers = player.workers.filter(w => !w.is_paid).length;
   const totalSalary = player.workers.reduce((sum, w) => sum + w.salary, 0);
 
-  const handleQuickSell = async (resourceType: ResourceType, amount: number) => {
-    if (amount <= 0) return;
-    
-    const result = await api.sellResource(player.id, resourceType, amount);
-    if (result.success) {
-      onUpdate(result.player);
-      showMessage('✅ Продано!', 'success');
-    } else {
-      showMessage('❌ ' + result.message, 'error');
-    }
-  };
-
-  const handleSellAll = async (resourceType: ResourceType) => {
-    const amount = player.storage.resources[resourceType];
-    if (amount > 0) {
-      await handleQuickSell(resourceType, amount);
-    }
-  };
-
-  const toggleAutoSell = (resourceType: string) => {
-    setAutoSell(prev => ({
-      ...prev,
-      [resourceType]: !prev[resourceType]
-    }));
-    
-    if (!autoSell[resourceType]) {
-      // По умолчанию продавать всё что больше 50
-      setAutoSellThreshold(prev => ({
-        ...prev,
-        [resourceType]: prev[resourceType] || 50
-      }));
-    }
-  };
-
-  const showMessage = (text: string, type: string) => {
+  const showMessage = useCallback((text: string, type: string) => {
     setMessage(text);
     setMessageType(type);
     setTimeout(() => {
       setMessage('');
       setMessageType('');
     }, 2000);
-  };
+  }, []);
 
-  // Авто-продажа (проверяем каждые 5 секунд через эффект)
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      Object.entries(autoSell).forEach(([type, enabled]) => {
-        if (enabled) {
-          const resourceType = type as ResourceType;
-          const currentAmount = player.storage.resources[resourceType];
-          const threshold = autoSellThreshold[type] || 50;
+  const handleQuickSell = useCallback(async (resourceType: ResourceType, amount: number) => {
+    if (amount <= 0) return;
+    
+    const result = await api.sellResource(playerRef.current.id, resourceType, amount);
+    if (result.success) {
+      onUpdate(result.player);
+      showMessage(`✅ Продано ${amount} ${resourceType}`, 'success');
+    } else {
+      showMessage('❌ ' + result.message, 'error');
+    }
+  }, [onUpdate, showMessage]);
+
+  const handleSellAll = useCallback(async (resourceType: ResourceType) => {
+    const amount = playerRef.current.storage.resources[resourceType];
+    if (amount > 0) {
+      await handleQuickSell(resourceType, amount);
+    }
+  }, [handleQuickSell]);
+
+  const toggleAutoSell = useCallback((resourceType: string) => {
+    setAutoSell(prev => {
+      const newState = { ...prev, [resourceType]: !prev[resourceType] };
+      
+      // Если включили авто-продажу, устанавливаем порог по умолчанию
+      if (newState[resourceType]) {
+        setAutoSellThreshold(prevThreshold => ({
+          ...prevThreshold,
+          [resourceType]: prevThreshold[resourceType] || 50
+        }));
+        showMessage(`🔄 Авто-продажа ${resourceType} включена`, 'success');
+      } else {
+        showMessage(`🔴 Авто-продажа ${resourceType} отключена`, 'error');
+      }
+      
+      return newState;
+    });
+  }, [showMessage]);
+
+  // 🔥 ИСПРАВЛЕНО: Авто-продажа с использованием ref
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const currentPlayer = playerRef.current; // Берем актуальные данные
+      
+      // Проходим по всем типам ресурсов где включена авто-продажа
+      for (const [type, enabled] of Object.entries(autoSell)) {
+        if (!enabled) continue;
+        
+        const resourceType = type as ResourceType;
+        const currentAmount = currentPlayer.storage.resources[resourceType];
+        const threshold = autoSellThreshold[type] || 50;
+        
+        if (currentAmount > threshold) {
+          const sellAmount = currentAmount - threshold;
+          console.log(`🔄 Авто-продажа: ${type} (есть ${currentAmount}, порог ${threshold}, продаем ${sellAmount})`);
           
-          if (currentAmount > threshold) {
-            const sellAmount = currentAmount - threshold;
-            handleQuickSell(resourceType, sellAmount);
+          const result = await api.sellResource(currentPlayer.id, resourceType, sellAmount);
+          if (result.success) {
+            onUpdate(result.player);
           }
         }
-      });
+      }
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [autoSell, autoSellThreshold, player.storage.resources]);
+  }, [autoSell, autoSellThreshold, onUpdate]); // Не добавляем player в зависимости!
 
   return (
     <div className="panel">
@@ -108,7 +128,6 @@ const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
         </div>
       )}
 
-      {/* Информация о рабочих и зарплате */}
       <div style={{
         background: 'rgba(0,0,0,0.3)',
         borderRadius: '10px',
@@ -149,7 +168,7 @@ const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
       
       <div className="resources-grid">
         {Object.entries(player.storage.resources).map(([type, amount]) => (
-          <div className="resource-card" key={type} style={{ position: 'relative' }}>
+          <div className="resource-card" key={type}>
             <div className="resource-icon">
               {resourceNames[type as ResourceType]?.icon || '📦'}
             </div>
@@ -158,14 +177,13 @@ const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
             </div>
             <div className="resource-amount">{amount}</div>
             
-            {/* Кнопки быстрой продажи */}
             <div style={{ marginTop: '10px', display: 'flex', gap: '5px', flexDirection: 'column' }}>
               <div style={{ display: 'flex', gap: '5px' }}>
                 <button
                   className="medieval-button"
                   onClick={() => handleQuickSell(type as ResourceType, 1)}
                   disabled={amount < 1}
-                  style={{ flex: 1, padding: '5px', fontSize: '0.7em', minWidth: '0' }}
+                  style={{ flex: 1, padding: '5px', fontSize: '0.7em' }}
                 >
                   -1
                 </button>
@@ -173,7 +191,7 @@ const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
                   className="medieval-button"
                   onClick={() => handleQuickSell(type as ResourceType, 10)}
                   disabled={amount < 10}
-                  style={{ flex: 1, padding: '5px', fontSize: '0.7em', minWidth: '0' }}
+                  style={{ flex: 1, padding: '5px', fontSize: '0.7em' }}
                 >
                   -10
                 </button>
@@ -187,7 +205,6 @@ const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
                 💰 Продать всё
               </button>
               
-              {/* Авто-продажа */}
               <div style={{ marginTop: '5px' }}>
                 <label style={{ 
                   display: 'flex', 
@@ -204,7 +221,7 @@ const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
                     onChange={() => toggleAutoSell(type)}
                     style={{ cursor: 'pointer' }}
                   />
-                  Авто-продажа
+                  {autoSell[type] ? '🔄 Авто ON' : '⚪ Авто OFF'}
                 </label>
                 
                 {autoSell[type] && (
@@ -226,10 +243,9 @@ const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
                         color: '#ffd700',
                         textAlign: 'center'
                       }}
-                      placeholder="Мин. остаток"
                     />
-                    <div style={{ color: '#8b7355', fontSize: '0.6em', marginTop: '2px', textAlign: 'center' }}>
-                      Мин. остаток: {autoSellThreshold[type] || 50}
+                    <div style={{ color: '#8b7355', fontSize: '0.6em', marginTop: '2px' }}>
+                      Оставить: {autoSellThreshold[type] || 50}
                     </div>
                   </div>
                 )}
