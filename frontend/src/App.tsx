@@ -72,7 +72,7 @@ function App() {
             />
           </div>
           
-          <div style={{ marginTop: '20px' }}>
+          <div style={{ marginTop: '12px' }}>
             <WorkerPanel 
               player={gameState?.player || player}
               onUpdate={handlePlayerUpdate}
