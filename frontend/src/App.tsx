@@ -5,6 +5,7 @@ import { GameWebSocket } from './services/websocket';
 import Dashboard from './components/Dashboard';
 import MarketPanel from './components/MarketPanel';
 import WorkerPanel from './components/WorkerPanel';
+import BuildingPanel from './components/BuildingPanel';
 import './App.css';
 
 function App() {
@@ -73,6 +74,13 @@ function App() {
           
           <div style={{ marginTop: '20px' }}>
             <WorkerPanel 
+              player={gameState?.player || player}
+              onUpdate={handlePlayerUpdate}
+            />
+          </div>
+
+          <div style={{ marginTop: '12px' }}>
+            <BuildingPanel 
               player={gameState?.player || player}
               onUpdate={handlePlayerUpdate}
             />
