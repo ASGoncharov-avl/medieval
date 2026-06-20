@@ -24,12 +24,19 @@ function App() {
     ws.connect();
   };
 
+  const handlePlayerUpdate = (updatedPlayer: Player) => {
+    setPlayer(updatedPlayer);
+  };
+
   return (
     <div className="app-container">
       {!player ? (
         <div className="login-panel">
+          <div className="heraldry">
+            <div className="heraldry-icon">🏰</div>
+          </div>
           <h1 className="medieval-title">⚔️ Medieval Trader ⚔️</h1>
-          <p style={{ color: '#A0522D', marginBottom: '30px', fontSize: '1.2em' }}>
+          <p style={{ color: '#d4a574', marginBottom: '30px', fontSize: '1.2em' }}>
             Станьте лордом средневекового поместья!
           </p>
           
@@ -49,22 +56,25 @@ function App() {
       ) : (
         <div>
           <h1 className="medieval-title">
-            Владения лорда {player.name}
+            🏰 Владения лорда {player.name}
           </h1>
           
           <div className="game-grid">
-            <Dashboard player={gameState?.player || player} />
+            <Dashboard 
+              player={gameState?.player || player} 
+              onUpdate={handlePlayerUpdate}
+            />
             <MarketPanel 
               market={gameState?.market} 
               playerId={player.id}
-              onUpdate={(updatedPlayer: Player) => setPlayer(updatedPlayer)}
+              onUpdate={handlePlayerUpdate}
             />
           </div>
           
           <div style={{ marginTop: '20px' }}>
             <WorkerPanel 
               player={gameState?.player || player}
-              onUpdate={(updatedPlayer: Player) => setPlayer(updatedPlayer)}
+              onUpdate={handlePlayerUpdate}
             />
           </div>
         </div>
