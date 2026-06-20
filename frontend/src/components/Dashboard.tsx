@@ -15,6 +15,10 @@ const resourceNames: Record<ResourceType, { name: string; icon: string }> = {
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ player }) => {
+  const paidWorkers = player.workers.filter(w => w.is_paid).length;
+  const unpaidWorkers = player.workers.filter(w => !w.is_paid).length;
+  const totalSalary = player.workers.reduce((sum, w) => sum + w.salary, 0);
+
   return (
     <div className="panel">
       <h2 className="panel-title">🏰 Ресурсы и Статистика</h2>
@@ -24,6 +28,41 @@ const Dashboard: React.FC<DashboardProps> = ({ player }) => {
         <div className="gold-amount">{player.gold}</div>
         <div style={{ color: '#d4a574', marginTop: '10px', fontSize: '1.1em' }}>
           ⭐ Уровень: {player.level} | 📈 Опыт: {player.experience}/{player.level * 100}
+        </div>
+      </div>
+
+      {/* Информация о рабочих и зарплате */}
+      <div className="workers-status" style={{
+        background: 'rgba(0,0,0,0.3)',
+        borderRadius: '10px',
+        padding: '15px',
+        marginBottom: '20px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <span style={{ color: '#ffd700' }}>👥 Рабочие:</span>
+          <span style={{ color: '#fff' }}>{player.workers.length}/{player.max_workers}</span>
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <span style={{ color: '#51cf66' }}>✅ Работают:</span>
+          <span style={{ color: '#51cf66' }}>{paidWorkers}</span>
+        </div>
+        
+        {unpaidWorkers > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span style={{ color: '#ff6b6b' }}>❌ Без зарплаты:</span>
+            <span style={{ color: '#ff6b6b' }}>{unpaidWorkers}</span>
+          </div>
+        )}
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <span style={{ color: '#ffd700' }}>💰 Зарплата в минуту:</span>
+          <span style={{ color: '#ffd700' }}>{totalSalary * 12}</span>
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: '#d4a574' }}>💸 Всего выплачено:</span>
+          <span style={{ color: '#d4a574' }}>{player.total_salary_expense}</span>
         </div>
       </div>
       
@@ -43,12 +82,6 @@ const Dashboard: React.FC<DashboardProps> = ({ player }) => {
             <div className="resource-amount">{amount}</div>
           </div>
         ))}
-      </div>
-      
-      <div style={{ marginTop: '20px', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', textAlign: 'center' }}>
-        <span style={{ color: '#ffd700', fontSize: '1.2em' }}>
-          👥 Рабочие: {player.workers.length}/{player.max_workers}
-        </span>
       </div>
     </div>
   );
