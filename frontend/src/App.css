@@ -457,3 +457,26 @@ body {
     font-size: 2em;
   }
 }
+
+/* Компактные кнопки продажи */
+.resource-card .medieval-button {
+  font-size: 0.7em;
+  padding: 4px 8px;
+  min-width: 0;
+}
+
+/* Чекбокс авто-продажи */
+.resource-card input[type="checkbox"] {
+  accent-color: #51cf66;
+}
+
+/* Поле ввода для авто-продажи */
+.resource-card input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.resource-card input[type="number"]::-webkit-outer-spin-button,
+.resource-card input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
