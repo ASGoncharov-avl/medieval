@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://192.168.0.106:8000';
+const API_URL = 'http://localhost:8000';
 
 export const api = {
   createPlayer: async (name: string) => {
