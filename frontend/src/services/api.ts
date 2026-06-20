@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-// Автоматически определяем URL бэкенда
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL = 'http://192.168.0.106:8000';
 
 export const api = {
   createPlayer: async (name: string) => {
@@ -36,6 +35,25 @@ export const api = {
   hireWorker: async (playerId: string, workerType: string) => {
     const response = await axios.post(
       `${API_URL}/api/worker/hire?player_id=${playerId}&worker_type=${workerType}`
+    );
+    return response.data;
+  },
+
+  getBuildingsInfo: async () => {
+    const response = await axios.get(`${API_URL}/api/buildings/info`);
+    return response.data;
+  },
+
+  buildBuilding: async (playerId: string, buildingType: string) => {
+    const response = await axios.post(
+      `${API_URL}/api/building/build?player_id=${playerId}&building_type=${buildingType}`
+    );
+    return response.data;
+  },
+
+  hireBuildingWorker: async (playerId: string, buildingType: string) => {
+    const response = await axios.post(
+      `${API_URL}/api/building/hire?player_id=${playerId}&building_type=${buildingType}`
     );
     return response.data;
   }
