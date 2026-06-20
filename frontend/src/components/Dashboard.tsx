@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Player, ResourceType } from '../types/game';
+import { api } from '../services/api';
 
 interface DashboardProps {
   player: Player;
+  onUpdate: (player: Player) => void;
 }
 
 const resourceNames: Record<ResourceType, { name: string; icon: string }> = {
@@ -14,10 +16,79 @@ const resourceNames: Record<ResourceType, { name: string; icon: string }> = {
   [ResourceType.TOOLS]: { name: 'Инструменты', icon: '🔧' },
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ player }) => {
+const Dashboard: React.FC<DashboardProps> = ({ player, onUpdate }) => {
+  const [sellAmounts, setSellAmounts] = useState<Record<string, number>>({});
+  const [autoSell, setAutoSell] = useState<Record<string, boolean>>({});
+  const [autoSellThreshold, setAutoSellThreshold] = useState<Record<string, number>>({});
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+
   const paidWorkers = player.workers.filter(w => w.is_paid).length;
   const unpaidWorkers = player.workers.filter(w => !w.is_paid).length;
   const totalSalary = player.workers.reduce((sum, w) => sum + w.salary, 0);
+
+  const handleQuickSell = async (resourceType: ResourceType, amount: number) => {
+    if (amount <= 0) return;
+    
+    const result = await api.sellResource(player.id, resourceType, amount);
+    if (result.success) {
+      onUpdate(result.player);
+      showMessage('✅ Продано!', 'success');
+    } else {
+      showMessage('❌ ' + result.message, 'error');
+    }
+  };
+
+  const handleSellAll = async (resourceType: ResourceType) => {
+    const amount = player.storage.resources[resourceType];
+    if (amount > 0) {
+      await handleQuickSell(resourceType, amount);
+    }
+  };
+
+  const toggleAutoSell = (resourceType: string) => {
+    setAutoSell(prev => ({
+      ...prev,
+      [resourceType]: !prev[resourceType]
+    }));
+    
+    if (!autoSell[resourceType]) {
+      // По умолчанию продавать всё что больше 50
+      setAutoSellThreshold(prev => ({
+        ...prev,
+        [resourceType]: prev[resourceType] || 50
+      }));
+    }
+  };
+
+  const showMessage = (text: string, type: string) => {
+    setMessage(text);
+    setMessageType(type);
+    setTimeout(() => {
+      setMessage('');
+      setMessageType('');
+    }, 2000);
+  };
+
+  // Авто-продажа (проверяем каждые 5 секунд через эффект)
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      Object.entries(autoSell).forEach(([type, enabled]) => {
+        if (enabled) {
+          const resourceType = type as ResourceType;
+          const currentAmount = player.storage.resources[resourceType];
+          const threshold = autoSellThreshold[type] || 50;
+          
+          if (currentAmount > threshold) {
+            const sellAmount = currentAmount - threshold;
+            handleQuickSell(resourceType, sellAmount);
+          }
+        }
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [autoSell, autoSellThreshold, player.storage.resources]);
 
   return (
     <div className="panel">
@@ -31,8 +102,14 @@ const Dashboard: React.FC<DashboardProps> = ({ player }) => {
         </div>
       </div>
 
+      {message && (
+        <div className={`game-message game-message-${messageType}`} style={{ marginBottom: '15px' }}>
+          {message}
+        </div>
+      )}
+
       {/* Информация о рабочих и зарплате */}
-      <div className="workers-status" style={{
+      <div style={{
         background: 'rgba(0,0,0,0.3)',
         borderRadius: '10px',
         padding: '15px',
@@ -72,7 +149,7 @@ const Dashboard: React.FC<DashboardProps> = ({ player }) => {
       
       <div className="resources-grid">
         {Object.entries(player.storage.resources).map(([type, amount]) => (
-          <div className="resource-card" key={type}>
+          <div className="resource-card" key={type} style={{ position: 'relative' }}>
             <div className="resource-icon">
               {resourceNames[type as ResourceType]?.icon || '📦'}
             </div>
@@ -80,6 +157,84 @@ const Dashboard: React.FC<DashboardProps> = ({ player }) => {
               {resourceNames[type as ResourceType]?.name || type}
             </div>
             <div className="resource-amount">{amount}</div>
+            
+            {/* Кнопки быстрой продажи */}
+            <div style={{ marginTop: '10px', display: 'flex', gap: '5px', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <button
+                  className="medieval-button"
+                  onClick={() => handleQuickSell(type as ResourceType, 1)}
+                  disabled={amount < 1}
+                  style={{ flex: 1, padding: '5px', fontSize: '0.7em', minWidth: '0' }}
+                >
+                  -1
+                </button>
+                <button
+                  className="medieval-button"
+                  onClick={() => handleQuickSell(type as ResourceType, 10)}
+                  disabled={amount < 10}
+                  style={{ flex: 1, padding: '5px', fontSize: '0.7em', minWidth: '0' }}
+                >
+                  -10
+                </button>
+              </div>
+              <button
+                className="medieval-button"
+                onClick={() => handleSellAll(type as ResourceType)}
+                disabled={amount === 0}
+                style={{ padding: '5px', fontSize: '0.75em', background: 'linear-gradient(180deg, #228B22 0%, #006400 100%)' }}
+              >
+                💰 Продать всё
+              </button>
+              
+              {/* Авто-продажа */}
+              <div style={{ marginTop: '5px' }}>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '5px',
+                  color: autoSell[type] ? '#51cf66' : '#8b7355',
+                  fontSize: '0.7em',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={autoSell[type] || false}
+                    onChange={() => toggleAutoSell(type)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Авто-продажа
+                </label>
+                
+                {autoSell[type] && (
+                  <div style={{ marginTop: '5px' }}>
+                    <input
+                      type="number"
+                      value={autoSellThreshold[type] || 50}
+                      onChange={(e) => setAutoSellThreshold(prev => ({
+                        ...prev,
+                        [type]: parseInt(e.target.value) || 0
+                      }))}
+                      style={{
+                        width: '100%',
+                        padding: '3px',
+                        fontSize: '0.7em',
+                        background: '#2d1f0e',
+                        border: '1px solid #8b7355',
+                        borderRadius: '4px',
+                        color: '#ffd700',
+                        textAlign: 'center'
+                      }}
+                      placeholder="Мин. остаток"
+                    />
+                    <div style={{ color: '#8b7355', fontSize: '0.6em', marginTop: '2px', textAlign: 'center' }}>
+                      Мин. остаток: {autoSellThreshold[type] || 50}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         ))}
       </div>
