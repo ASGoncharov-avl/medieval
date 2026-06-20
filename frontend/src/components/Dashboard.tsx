@@ -10,7 +10,7 @@ interface DashboardProps {
 const resourceNames: Record<ResourceType, { name: string; icon: string }> = {
   [ResourceType.WOOD]: { name: 'Дерево', icon: '🌲' },
   [ResourceType.STONE]: { name: 'Камень', icon: '🪨' },
-  [ResourceType.METAL]: { name: 'Металл', icon: '⛏️' },
+  [ResourceType.IRON]: { name: 'Железо', icon: '⛏️' },
   [ResourceType.PLANKS]: { name: 'Доски', icon: '🪵' },
   [ResourceType.BRICKS]: { name: 'Кирпичи', icon: '🧱' },
   [ResourceType.TOOLS]: { name: 'Инструменты', icon: '🔧' },
