@@ -4,12 +4,12 @@ from enum import Enum
 from .resources import ResourceType, ResourceStorage
 
 class WorkerType(str, Enum):
-    LUMBERJACK = "lumberjack"    # добывает дерево
-    MINER_STONE = "miner_stone"  # добывает камень
-    MINER_METAL = "miner_metal"  # добывает металл
-    CARPENTER = "carpenter"      # перерабатывает дерево в доски
-    MASON = "mason"              # перерабатывает камень в кирпичи
-    BLACKSMITH = "blacksmith"    # перерабатывает металл в инструменты
+    LUMBERJACK = "lumberjack"
+    MINER_STONE = "miner_stone"
+    MINER_METAL = "miner_metal"
+    CARPENTER = "carpenter"
+    MASON = "mason"
+    BLACKSMITH = "blacksmith"
 
 class Worker(BaseModel):
     id: int
@@ -17,9 +17,10 @@ class Worker(BaseModel):
     name: str
     level: int = 1
     efficiency: float = 1.0
-    cost_gold_per_day: int = 5
+    salary: int = 0  # зарплата в цикл (5 секунд)
+    is_paid: bool = True  # оплачен ли в этом цикле
     
-    # Базовая производительность в единицах в минуту
+    # Базовая производительность в единицах за цикл
     base_production: Dict[WorkerType, int] = {
         WorkerType.LUMBERJACK: 2,
         WorkerType.MINER_STONE: 1,
@@ -29,12 +30,26 @@ class Worker(BaseModel):
         WorkerType.BLACKSMITH: 1
     }
     
+    # Базовая зарплата за цикл
+    base_salary: Dict[WorkerType, int] = {
+        WorkerType.LUMBERJACK: 3,
+        WorkerType.MINER_STONE: 5,
+        WorkerType.MINER_METAL: 7,
+        WorkerType.CARPENTER: 6,
+        WorkerType.MASON: 6,
+        WorkerType.BLACKSMITH: 10,
+    }
+    
     class Config:
-        # Разрешаем использовать Enum как ключи словаря
         use_enum_values = True
     
     def get_production_rate(self) -> float:
+        if not self.is_paid:
+            return 0  # без зарплаты не работают
         return self.base_production[self.type] * self.level * self.efficiency
+    
+    def get_salary(self) -> int:
+        return self.base_salary[self.type] * self.level
 
 class Player(BaseModel):
     id: str
@@ -45,3 +60,4 @@ class Player(BaseModel):
     max_workers: int = 5
     level: int = 1
     experience: int = 0
+    total_salary_expense: int = 0  # общие расходы на зарплату
