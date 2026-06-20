@@ -11,7 +11,7 @@ interface MarketPanelProps {
 const resourceNames: Record<string, string> = {
   wood: '🌲 Дерево',
   stone: '🪨 Камень',
-  metal: '⛏️ Металл',
+  iron: '⛏️ Руда',
   planks: '🪵 Доски',
   bricks: '🧱 Кирпичи',
   tools: '🔧 Инструменты',
