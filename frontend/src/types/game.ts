@@ -22,7 +22,8 @@ export interface Worker {
   name: string;
   level: number;
   efficiency: number;
-  cost_gold_per_day: number;
+  salary: number;
+  is_paid: boolean;
 }
 
 export interface Player {
@@ -36,6 +37,7 @@ export interface Player {
   max_workers: number;
   level: number;
   experience: number;
+  total_salary_expense: number;
 }
 
 export interface MarketPrices {
