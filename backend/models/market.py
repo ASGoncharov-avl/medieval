@@ -26,8 +26,8 @@ class Market(BaseModel):
             sell_price=12,
             base_price=15
         ),
-        ResourceType.METAL: MarketPrice(
-            resource_type=ResourceType.METAL,
+        ResourceType.IRON: MarketPrice(
+            resource_type=ResourceType.IRON,
             buy_price=25,
             sell_price=20,
             base_price=25
